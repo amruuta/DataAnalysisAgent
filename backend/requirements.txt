@@ -18,3 +18,8 @@ langgraph-checkpoint-redis
 pydantic-settings
 python-dotenv
 structlog
+python-jose[cryptography]
+passlib[bcrypt]
+apscheduler
+uuid6
+redis

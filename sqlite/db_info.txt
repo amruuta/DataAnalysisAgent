@@ -1,0 +1,25 @@
+SQLite Database Information
+==================================================
+
+Database File: bestsellers with categories.db
+Absolute Path: D:\projects\DataAnalysisAgent\sqlite\bestsellers with categories.db
+File Size: 64.00 KB
+Created: 2026-05-11 00:04:02.383929
+
+Database URLs:
+--------------------------------------------------
+Absolute Path URL:
+sqlite:///D:/projects/DataAnalysisAgent/sqlite/bestsellers with categories.db
+
+Standard SQLite URL:
+sqlite:///bestsellers with categories.db
+
+POSIX Path URL:
+sqlite:///bestsellers with categories.db
+
+Relative URL:
+sqlite:///bestsellers with categories.db
+
+--------------------------------------------------
+Connection String (for SQLAlchemy):
+sqlite:///D:/projects/DataAnalysisAgent/sqlite/bestsellers with categories.db

@@ -9,7 +9,14 @@ from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
 from app.logging_config import configure_logging
-from app.routers import ingestion, chat
+from app.routers import auth, chat, ingestion
+from app.services.health_service import (
+    check_cache,
+    check_checkpointer,
+    check_database,
+    run_health_checks,
+)
+from app.services.scheduler_service import start_scheduler, stop_scheduler
 
 
 @asynccontextmanager
@@ -17,7 +24,14 @@ async def lifespan(app: FastAPI):
     """Create local storage directories when the FastAPI app starts."""
     os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
     os.makedirs(settings.EXPORT_DIR, exist_ok=True)
-    yield
+    check_database()
+    check_cache()
+    check_checkpointer()
+    start_scheduler()
+    try:
+        yield
+    finally:
+        stop_scheduler()
 
 
 configure_logging()
@@ -74,8 +88,9 @@ async def request_logging_middleware(request: Request, call_next):
     return response
 
 
-app.include_router(ingestion.router)
+app.include_router(auth.router)
 app.include_router(chat.router)
+app.include_router(ingestion.router)
 app.mount(
     "/exports",
     StaticFiles(directory=settings.EXPORT_DIR, check_dir=False),
@@ -85,5 +100,7 @@ app.mount(
 
 @app.get("/health")
 def health_check():
-    """Return a simple health signal for uptime checks."""
-    return {"status": "ok"}
+    """Return application, database, cache, and checkpointer health."""
+    checks = run_health_checks()
+    status = "ok" if all(checks.values()) else "degraded"
+    return {"status": status, "checks": checks}

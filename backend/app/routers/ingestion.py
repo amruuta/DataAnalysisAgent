@@ -6,7 +6,8 @@ from fastapi import APIRouter, Depends, File, Form, Query, UploadFile
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import DataSource
+from app.dependencies import get_current_user
+from app.models import DataSource, User
 from app.schemas import (
     DataSourceResponse,
     DatabaseConnectionRequest,
@@ -19,6 +20,7 @@ from app.services.ingestion_service import (
     ingest_file,
     list_data_sources,
 )
+from app.services.security_service import decrypt_secret
 
 router = APIRouter(prefix="/ingest", tags=["ingestion"])
 
@@ -28,9 +30,10 @@ async def upload_file(
     file: UploadFile = File(...),
     name: str = Form(...),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """Upload a tabular file and register it as a data source."""
-    data_source = await ingest_file(file, name, db)
+    data_source = await ingest_file(file, name, db, current_user)
     return FileUploadResponse(
         id=cast(int, data_source.id),
         name=cast(str, data_source.name),
@@ -47,17 +50,18 @@ def _mask_password(url: str) -> str:
 
 def _to_data_source_response(data_source: DataSource) -> DataSourceResponse:
     """Convert a DataSource model into its public API response schema."""
+    db_url = (
+        _mask_password(decrypt_secret(cast(str, data_source.db_url)))
+        if data_source.db_url is not None
+        else None
+    )
     return DataSourceResponse(
         id=cast(int, data_source.id),
         name=cast(str, data_source.name),
         source_type=cast(str, data_source.source_type),
         table_name=cast(str, data_source.table_name),
         file_path=cast(Optional[str], data_source.file_path),
-        db_url=(
-            _mask_password(cast(str, data_source.db_url))
-            if data_source.db_url is not None
-            else None
-        ),
+        db_url=db_url,
         created_at=cast(datetime, data_source.created_at),
     )
 
@@ -66,13 +70,14 @@ def _to_data_source_response(data_source: DataSource) -> DataSourceResponse:
 def connect_database(
     config: DatabaseConnectionRequest,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """Validate and register an external database as a data source."""
-    data_source = ingest_database(config, db)
+    data_source = ingest_database(config, db, current_user)
     return DatabaseConnectionResponse(
         id=cast(int, data_source.id),
         name=cast(str, data_source.name),
-        db_url=_mask_password(cast(str, data_source.db_url)),
+        db_url=_mask_password(config.db_url or ""),
         table_name=cast(Optional[str], data_source.table_name),
         message="Database connection registered successfully",
     )
@@ -85,9 +90,10 @@ def get_data_sources(
         description="Optional filter by source type: file or database",
     ),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """List registered data sources, optionally filtered by source type."""
-    data_sources = list_data_sources(db=db, source_type=source_type)
+    data_sources = list_data_sources(db=db, user=current_user, source_type=source_type)
     return [_to_data_source_response(data_source) for data_source in data_sources]
 
 
@@ -95,7 +101,10 @@ def get_data_sources(
 def get_data_source_details(
     data_source_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """Return details for a single registered data source."""
-    data_source = get_data_source_by_id(data_source_id=data_source_id, db=db)
+    data_source = get_data_source_by_id(
+        data_source_id=data_source_id, db=db, user=current_user
+    )
     return _to_data_source_response(data_source)

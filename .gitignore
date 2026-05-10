@@ -26,13 +26,6 @@ frontend/yarn-error.log*
 frontend/pnpm-debug.log*
 
 # ------------------------------
-# Exports / uploads / generated files
-# ------------------------------
-exports/
-backend/exports/
-backend/uploads/
-
-# ------------------------------
 # Project-level virtual environments
 # ------------------------------
 venv/

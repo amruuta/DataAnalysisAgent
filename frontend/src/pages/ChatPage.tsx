@@ -9,6 +9,8 @@ import { PlotlyChart } from '@/components/common/PlotlyChart'
 import { StatusBadge } from '@/components/common/StatusBadge'
 import {
   clearChatError,
+  fetchChatSessions,
+  loadChatSession,
   selectDataSource,
   sendChatMessage,
   startNewConversation,
@@ -23,14 +25,28 @@ export function ChatPage() {
   const { items: dataSources, status: dataSourceStatus, error: dataSourceError } =
     useAppSelector((state) => state.datasources)
 
-  const { selectedDataSourceId, messages, sending, error: chatError, threadId } =
-    useAppSelector((state) => state.chat)
+  const {
+    selectedDataSourceId,
+    messages,
+    sessions,
+    sessionsStatus,
+    sending,
+    saving,
+    error: chatError,
+    threadId,
+  } = useAppSelector((state) => state.chat)
 
   useEffect(() => {
     if (dataSourceStatus === 'idle') {
       void dispatch(fetchDataSources(undefined))
     }
   }, [dataSourceStatus, dispatch])
+
+  useEffect(() => {
+    if (sessionsStatus === 'idle') {
+      void dispatch(fetchChatSessions())
+    }
+  }, [dispatch, sessionsStatus])
 
   useEffect(() => {
     if (chatError) {
@@ -115,10 +131,11 @@ export function ChatPage() {
               </h2>
               <button
                 type="button"
-                onClick={() => dispatch(startNewConversation())}
+                onClick={() => void dispatch(startNewConversation())}
+                disabled={saving}
                 className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-slate-700"
               >
-                New Conversation
+                {saving ? 'Saving...' : 'New Conversation'}
               </button>
             </div>
 
@@ -162,6 +179,48 @@ export function ChatPage() {
                 )
               })}
             </div>
+
+            <div className="mt-6 border-t border-slate-100 pt-4">
+              <div className="mb-3 flex items-center justify-between">
+                <h2 className="font-heading text-lg font-semibold text-slate-900">
+                  Chat History
+                </h2>
+                {sessionsStatus === 'loading' && (
+                  <span className="text-xs text-slate-400">Loading</span>
+                )}
+              </div>
+
+              {sessions.length === 0 && sessionsStatus !== 'loading' ? (
+                <p className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500">
+                  Saved chats will appear here.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {sessions.map((session) => {
+                    const isActive = session.thread_id === threadId
+                    return (
+                      <button
+                        key={session.thread_id}
+                        type="button"
+                        onClick={() => void dispatch(loadChatSession(session.thread_id))}
+                        className={`w-full rounded-xl border p-3 text-left transition ${
+                          isActive
+                            ? 'border-amber-400 bg-amber-50'
+                            : 'border-slate-200 bg-white hover:border-slate-300'
+                        }`}
+                      >
+                        <p className="truncate text-sm font-semibold text-slate-900">
+                          {session.title}
+                        </p>
+                        <p className="mt-1 truncate text-xs text-slate-500">
+                          {session.data_source_name}
+                        </p>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
           </aside>
         )}
 
@@ -185,10 +244,11 @@ export function ChatPage() {
               {selectedSource && <StatusBadge type={selectedSource.source_type} />}
               <button
                 type="button"
-                onClick={() => dispatch(startNewConversation())}
+                onClick={() => void dispatch(startNewConversation())}
+                disabled={saving}
                 className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-slate-700"
               >
-                New Conversation
+                {saving ? 'Saving...' : 'New Conversation'}
               </button>
               <button
                 type="button"

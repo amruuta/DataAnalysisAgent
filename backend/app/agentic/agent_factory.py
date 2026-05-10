@@ -12,6 +12,7 @@ from app.agentic.tools.plotly_chart import create_plotly_chart_tool
 from app.agentic.tools.pptx_export import create_pptx_export_tool
 from app.config import settings
 from app.models import DataSource
+from app.services.security_service import decrypt_secret
 
 SYSTEM_PROMPT = """\
 You are a data analysis assistant. You have access to SQL database tools to \
@@ -66,11 +67,14 @@ the generated file link and a one-sentence summary of what the deck covers.
 _checkpointer = None
 
 
-def _get_checkpointer() -> RedisSaver:
+def get_checkpointer() -> RedisSaver:
     """Create or reuse the Redis checkpointer used for agent memory."""
     global _checkpointer
     if _checkpointer is None:
-        _checkpointer = RedisSaver(redis_url=settings.REDIS_URL)
+        _checkpointer = RedisSaver(
+            redis_url=settings.REDIS_URL,
+            ttl={"default_ttl": 60, "refresh_on_read": True},
+        )
         _checkpointer.setup()
     return _checkpointer
 
@@ -92,7 +96,9 @@ def create_agent_for_datasource(data_source: DataSource):
         )
         db_engine = create_engine(settings.DATABASE_URL)
     else:
-        db_url = cast(str, data_source.db_url)
+        db_url = decrypt_secret(cast(str, data_source.db_url))
+        if not db_url:
+            raise ValueError("Data source database URL is missing")
         sql_db = SQLDatabase.from_uri(
             db_url,
             include_tables=([table_name] if table_name != "all_tables" else None),
@@ -122,5 +128,5 @@ def create_agent_for_datasource(data_source: DataSource):
                 "tools": [*sql_tools, pptx_tool],
             }
         ],
-        checkpointer=_get_checkpointer(),
+        checkpointer=get_checkpointer(),
     )

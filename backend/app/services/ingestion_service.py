@@ -4,13 +4,15 @@ import uuid
 
 import pandas as pd
 from fastapi import HTTPException, UploadFile
-from sqlalchemy.orm import Session
 from sqlalchemy import create_engine, text
+from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.database import engine
-from app.models import DataSource
+from app.models import DataSource, User
 from app.schemas import DatabaseConnectionRequest
+from app.services.security_service import encrypt_secret
+from app.utils.ids import new_uuid7
 
 
 def _sanitize_table_name(name: str) -> str:
@@ -18,7 +20,15 @@ def _sanitize_table_name(name: str) -> str:
     name = os.path.splitext(name)[0]
     name = re.sub(r"[^a-zA-Z0-9]", "_", name).lower().strip("_")
     name = re.sub(r"_+", "_", name)
-    return f"ds_{name}"
+    return name or "data"
+
+
+def _build_user_table_name(file_name: str, user: User) -> str:
+    """Build a unique, user-scoped PostgreSQL table name for an upload."""
+    user_prefix = str(user.id).replace("-", "")[:10]
+    safe_name = _sanitize_table_name(file_name)[:28]
+    suffix = new_uuid7().replace("-", "")[:10]
+    return f"ds_{user_prefix}_{safe_name}_{suffix}"
 
 
 def _read_csv_with_fallback(file_path: str) -> pd.DataFrame:
@@ -41,9 +51,12 @@ def _read_csv_with_fallback(file_path: str) -> pd.DataFrame:
     )
 
 
-async def ingest_file(file: UploadFile, name: str, db: Session) -> DataSource:
+async def ingest_file(
+    file: UploadFile, name: str, db: Session, user: User
+) -> DataSource:
     """Persist an uploaded file, import it to SQL, and register the data source."""
-    os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
+    user_upload_dir = os.path.join(settings.UPLOAD_DIR, str(user.id))
+    os.makedirs(user_upload_dir, exist_ok=True)
 
     if not file.filename:
         raise HTTPException(
@@ -59,7 +72,7 @@ async def ingest_file(file: UploadFile, name: str, db: Session) -> DataSource:
         )
 
     unique_name = f"{uuid.uuid4().hex}_{filename}"
-    file_path = os.path.join(settings.UPLOAD_DIR, unique_name)
+    file_path = os.path.join(user_upload_dir, unique_name)
 
     content = await file.read()
     with open(file_path, "wb") as f:
@@ -70,10 +83,11 @@ async def ingest_file(file: UploadFile, name: str, db: Session) -> DataSource:
     else:
         df = pd.read_excel(file_path)
 
-    table_name = _sanitize_table_name(filename)
+    table_name = _build_user_table_name(filename, user)
     df.to_sql(table_name, engine, if_exists="replace", index=False)
 
     data_source = DataSource(
+        user_id=user.id,
         name=name,
         source_type="file",
         file_path=file_path,
@@ -85,7 +99,9 @@ async def ingest_file(file: UploadFile, name: str, db: Session) -> DataSource:
     return data_source
 
 
-def ingest_database(config: DatabaseConnectionRequest, db: Session) -> DataSource:
+def ingest_database(
+    config: DatabaseConnectionRequest, db: Session, user: User
+) -> DataSource:
     """Validate an external database connection and register it as a data source."""
     if not config.db_url:
         raise HTTPException(status_code=400, detail="Database URL is required")
@@ -108,9 +124,10 @@ def ingest_database(config: DatabaseConnectionRequest, db: Session) -> DataSourc
     table_name = config.table_name or "all_tables"
 
     data_source = DataSource(
+        user_id=user.id,
         name=config.name,
         source_type="database",
-        db_url=db_url,
+        db_url=encrypt_secret(db_url),
         table_name=table_name,
     )
     db.add(data_source)
@@ -119,17 +136,23 @@ def ingest_database(config: DatabaseConnectionRequest, db: Session) -> DataSourc
     return data_source
 
 
-def get_data_source_by_id(data_source_id: int, db: Session) -> DataSource:
+def get_data_source_by_id(data_source_id: int, db: Session, user: User) -> DataSource:
     """Fetch a data source by ID or raise a 404 HTTP error."""
-    data_source = db.query(DataSource).filter(DataSource.id == data_source_id).first()
+    data_source = (
+        db.query(DataSource)
+        .filter(DataSource.id == data_source_id, DataSource.user_id == user.id)
+        .first()
+    )
     if not data_source:
         raise HTTPException(status_code=404, detail="Data source not found")
     return data_source
 
 
-def list_data_sources(db: Session, source_type: str | None = None) -> list[DataSource]:
+def list_data_sources(
+    db: Session, user: User, source_type: str | None = None
+) -> list[DataSource]:
     """Return data sources ordered by creation time, with an optional type filter."""
-    query = db.query(DataSource)
+    query = db.query(DataSource).filter(DataSource.user_id == user.id)
 
     if source_type is not None:
         normalized_source_type = source_type.lower()
