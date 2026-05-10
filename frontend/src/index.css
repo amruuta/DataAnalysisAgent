@@ -1,0 +1,78 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply box-border;
+  }
+
+  body {
+    @apply m-0 min-h-screen bg-amber-50 text-slate-900 antialiased;
+    font-family: 'Space Grotesk', sans-serif;
+  }
+
+  #root {
+    @apply min-h-screen;
+  }
+}
+
+@layer components {
+  .markdown-content {
+    @apply text-sm leading-relaxed text-slate-800;
+  }
+
+  .markdown-content p {
+    @apply mb-2 last:mb-0;
+  }
+
+  .markdown-content ul {
+    @apply mb-2 list-disc pl-5;
+  }
+
+  .markdown-content ol {
+    @apply mb-2 list-decimal pl-5;
+  }
+
+  .markdown-content li {
+    @apply mb-1;
+  }
+
+  .markdown-content strong {
+    @apply font-semibold text-slate-900;
+  }
+
+  .markdown-content code {
+    @apply rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[12px] text-slate-800;
+  }
+
+  .markdown-content pre {
+    @apply mb-2 overflow-x-auto rounded-lg bg-slate-900 p-3 text-slate-100;
+  }
+
+  .markdown-content pre code {
+    @apply bg-transparent p-0 text-inherit;
+  }
+
+  .markdown-content table {
+    @apply mb-2 w-full border-collapse overflow-hidden rounded-lg border border-slate-200;
+  }
+
+  .markdown-content th {
+    @apply border border-slate-200 bg-slate-100 px-2 py-1 text-left text-xs font-semibold;
+  }
+
+  .markdown-content td {
+    @apply border border-slate-200 px-2 py-1 text-xs;
+  }
+
+  .markdown-content blockquote {
+    @apply mb-2 border-l-4 border-amber-300 bg-amber-50/60 px-3 py-2 italic text-slate-700;
+  }
+
+  .markdown-content a {
+    @apply text-cyan-700 underline underline-offset-2;
+  }
+}
