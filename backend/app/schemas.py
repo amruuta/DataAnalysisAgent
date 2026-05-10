@@ -24,6 +24,7 @@ class DatabaseConnectionRequest(BaseModel):
 
     @model_validator(mode="after")
     def validate_connection(self):
+        """Build or validate the database URL from connection fields."""
         if self.db_url:
             return self
         if all([self.db_host, self.db_name, self.db_user, self.db_password]):

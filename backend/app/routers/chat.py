@@ -15,6 +15,7 @@ def chat_endpoint(
     request: ChatRequest,
     db: Session = Depends(get_db),
 ):
+    """Handle a chat request and return the agent response plus chart payloads."""
     logger.info(
         "chat_request_received",
         data_source_id=request.data_source_id,

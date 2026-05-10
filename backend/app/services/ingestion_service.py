@@ -42,6 +42,7 @@ def _read_csv_with_fallback(file_path: str) -> pd.DataFrame:
 
 
 async def ingest_file(file: UploadFile, name: str, db: Session) -> DataSource:
+    """Persist an uploaded file, import it to SQL, and register the data source."""
     os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
 
     if not file.filename:
@@ -85,6 +86,7 @@ async def ingest_file(file: UploadFile, name: str, db: Session) -> DataSource:
 
 
 def ingest_database(config: DatabaseConnectionRequest, db: Session) -> DataSource:
+    """Validate an external database connection and register it as a data source."""
     if not config.db_url:
         raise HTTPException(status_code=400, detail="Database URL is required")
 
@@ -118,6 +120,7 @@ def ingest_database(config: DatabaseConnectionRequest, db: Session) -> DataSourc
 
 
 def get_data_source_by_id(data_source_id: int, db: Session) -> DataSource:
+    """Fetch a data source by ID or raise a 404 HTTP error."""
     data_source = db.query(DataSource).filter(DataSource.id == data_source_id).first()
     if not data_source:
         raise HTTPException(status_code=404, detail="Data source not found")
@@ -125,6 +128,7 @@ def get_data_source_by_id(data_source_id: int, db: Session) -> DataSource:
 
 
 def list_data_sources(db: Session, source_type: str | None = None) -> list[DataSource]:
+    """Return data sources ordered by creation time, with an optional type filter."""
     query = db.query(DataSource)
 
     if source_type is not None:

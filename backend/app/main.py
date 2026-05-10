@@ -14,6 +14,7 @@ from app.routers import ingestion, chat
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    """Create local storage directories when the FastAPI app starts."""
     os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
     os.makedirs(settings.EXPORT_DIR, exist_ok=True)
     yield
@@ -36,6 +37,7 @@ app.add_middleware(
 
 @app.middleware("http")
 async def request_logging_middleware(request: Request, call_next):
+    """Log request lifecycle metadata around each HTTP request."""
     start_time = time.perf_counter()
     client_host = request.client.host if request.client else "unknown"
 
@@ -83,4 +85,5 @@ app.mount(
 
 @app.get("/health")
 def health_check():
+    """Return a simple health signal for uptime checks."""
     return {"status": "ok"}

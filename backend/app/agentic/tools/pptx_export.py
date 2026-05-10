@@ -30,6 +30,7 @@ class PresentationTheme:
 
 
 def _strip_code_fence(value: str) -> str:
+    """Remove a surrounding Markdown code fence from a JSON string."""
     text = value.strip()
     if not text.startswith("```"):
         return text
@@ -44,8 +45,11 @@ def _strip_code_fence(value: str) -> str:
 
 
 def _safe_file_stem(value: str | None) -> str:
+    """Convert a requested file name into a safe deck file stem."""
     stem = Path(value or "presentation").stem.strip().lower()
-    cleaned = "".join(char if char.isalnum() or char in {"_", "-"} else "_" for char in stem)
+    cleaned = "".join(
+        char if char.isalnum() or char in {"_", "-"} else "_" for char in stem
+    )
     return cleaned.strip("_") or "presentation"
 
 
@@ -56,6 +60,7 @@ def _read_sql(sql_query: str, db_engine, max_rows: int) -> pd.DataFrame:
 
 
 def _parse_plan(plan_json: str) -> dict[str, Any]:
+    """Parse and validate a bounded presentation plan JSON payload."""
     try:
         plan = json.loads(_strip_code_fence(plan_json))
     except json.JSONDecodeError as exc:
@@ -76,11 +81,13 @@ class PptxDeckBuilder:
     """Builds a PowerPoint deck from a bounded JSON plan."""
 
     def __init__(self, db_engine, export_dir: str | Path):
+        """Store the database engine and output directory used for deck builds."""
         self.db_engine = db_engine
         self.export_dir = Path(export_dir)
         self.theme = PresentationTheme()
 
     def build(self, plan: dict[str, Any]) -> Path:
+        """Create a PPTX file from a validated presentation plan."""
         try:
             from pptx import Presentation
             from pptx.util import Inches
@@ -104,6 +111,7 @@ class PptxDeckBuilder:
         return out_path
 
     def _add_title_slide(self, prs, plan: dict[str, Any]) -> None:
+        """Add the opening title slide to the deck."""
         from pptx.util import Inches, Pt
 
         slide = prs.slides.add_slide(prs.slide_layouts[6])
@@ -113,7 +121,9 @@ class PptxDeckBuilder:
         title = str(plan.get("title") or "Data Presentation")
         subtitle = str(plan.get("subtitle") or "Generated from your data")
 
-        title_box = slide.shapes.add_textbox(Inches(0.8), Inches(1.7), Inches(8.5), Inches(1.3))
+        title_box = slide.shapes.add_textbox(
+            Inches(0.8), Inches(1.7), Inches(8.5), Inches(1.3)
+        )
         title_frame = title_box.text_frame
         title_frame.clear()
         paragraph = title_frame.paragraphs[0]
@@ -122,7 +132,9 @@ class PptxDeckBuilder:
         paragraph.font.bold = True
         paragraph.font.color.rgb = self._rgb(self.theme.white)
 
-        subtitle_box = slide.shapes.add_textbox(Inches(0.85), Inches(3.0), Inches(7.5), Inches(0.8))
+        subtitle_box = slide.shapes.add_textbox(
+            Inches(0.85), Inches(3.0), Inches(7.5), Inches(0.8)
+        )
         subtitle_frame = subtitle_box.text_frame
         subtitle_frame.clear()
         paragraph = subtitle_frame.paragraphs[0]
@@ -131,6 +143,7 @@ class PptxDeckBuilder:
         paragraph.font.color.rgb = self._rgb((226, 232, 240))
 
     def _add_content_slide(self, prs, slide_plan: dict[str, Any]) -> None:
+        """Add a content slide with bullets plus a chart, table, or takeaway."""
         from pptx.util import Inches
 
         slide = prs.slides.add_slide(prs.slide_layouts[6])
@@ -141,7 +154,9 @@ class PptxDeckBuilder:
         left = Inches(0.72)
         width = Inches(5.25)
 
-        self._add_bullets(slide, slide_plan.get("bullets", []), left, content_top, width)
+        self._add_bullets(
+            slide, slide_plan.get("bullets", []), left, content_top, width
+        )
 
         if isinstance(slide_plan.get("chart"), dict):
             self._add_chart(slide, slide_plan["chart"])
@@ -151,6 +166,7 @@ class PptxDeckBuilder:
             self._add_takeaway(slide, str(slide_plan.get("takeaway") or ""))
 
     def _add_chart(self, slide, chart_plan: dict[str, Any]) -> None:
+        """Add a chart to a slide using data returned by the planned SQL query."""
         from pptx.chart.data import CategoryChartData
         from pptx.enum.chart import XL_CHART_TYPE, XL_LEGEND_POSITION
         from pptx.util import Inches
@@ -172,7 +188,9 @@ class PptxDeckBuilder:
         x_column = str(chart_plan.get("x_column") or df.columns[0])
         y_column = str(chart_plan.get("y_column") or df.columns[-1])
         if x_column not in df.columns or y_column not in df.columns:
-            self._add_takeaway(slide, "The planned chart columns were not present in the query result.")
+            self._add_takeaway(
+                slide, "The planned chart columns were not present in the query result."
+            )
             return
 
         values = pd.to_numeric(df[y_column], errors="coerce").fillna(0).tolist()
@@ -204,6 +222,7 @@ class PptxDeckBuilder:
             chart.legend.include_in_layout = False
 
     def _add_table(self, slide, table_plan: dict[str, Any]) -> None:
+        """Add a compact data table to a slide from a planned SQL query."""
         from pptx.util import Inches, Pt
 
         max_rows = int(table_plan.get("max_rows") or _MAX_TABLE_ROWS)
@@ -245,6 +264,7 @@ class PptxDeckBuilder:
                 cell.text_frame.paragraphs[0].font.size = Pt(9)
 
     def _add_bullets(self, slide, bullets: Any, left, top, width) -> None:
+        """Render up to five bullet points on the left side of a content slide."""
         from pptx.util import Inches, Pt
 
         bullet_items = bullets if isinstance(bullets, list) else []
@@ -263,10 +283,13 @@ class PptxDeckBuilder:
             paragraph.font.color.rgb = self._rgb(self.theme.slate)
 
     def _add_takeaway(self, slide, text: str) -> None:
+        """Render a large takeaway message in the content area."""
         from pptx.util import Inches, Pt
 
         message = text or "Use this slide for the main recommendation or next step."
-        shape = slide.shapes.add_textbox(Inches(6.35), Inches(1.75), Inches(5.85), Inches(3.8))
+        shape = slide.shapes.add_textbox(
+            Inches(6.35), Inches(1.75), Inches(5.85), Inches(3.8)
+        )
         frame = shape.text_frame
         frame.clear()
         paragraph = frame.paragraphs[0]
@@ -276,9 +299,12 @@ class PptxDeckBuilder:
         paragraph.font.color.rgb = self._rgb(self.theme.navy)
 
     def _add_slide_title(self, slide, title: str) -> None:
+        """Render the standard title treatment for a content slide."""
         from pptx.util import Inches, Pt
 
-        title_box = slide.shapes.add_textbox(Inches(0.7), Inches(0.35), Inches(11.8), Inches(0.55))
+        title_box = slide.shapes.add_textbox(
+            Inches(0.7), Inches(0.35), Inches(11.8), Inches(0.55)
+        )
         frame = title_box.text_frame
         frame.clear()
         paragraph = frame.paragraphs[0]
@@ -288,6 +314,7 @@ class PptxDeckBuilder:
         paragraph.font.color.rgb = self._rgb(self.theme.navy)
 
     def _paint_background(self, slide, prs, light: bool = False) -> None:
+        """Paint the slide background and optional top accent."""
         from pptx.enum.shapes import MSO_SHAPE
         from pptx.util import Inches
 
@@ -316,6 +343,7 @@ class PptxDeckBuilder:
             accent.line.fill.background()
 
     def _add_accent_bar(self, slide, prs) -> None:
+        """Add the amber accent bar used on the title slide."""
         from pptx.enum.shapes import MSO_SHAPE
         from pptx.util import Inches
 
@@ -332,6 +360,7 @@ class PptxDeckBuilder:
 
     @staticmethod
     def _rgb(color: tuple[int, int, int]):
+        """Convert an RGB tuple into a python-pptx RGBColor."""
         from pptx.dml.color import RGBColor
 
         return RGBColor(*color)

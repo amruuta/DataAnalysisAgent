@@ -5,6 +5,7 @@ import structlog
 
 
 def configure_logging() -> None:
+    """Configure structlog and stdlib logging to emit JSON log records."""
     timestamper = structlog.processors.TimeStamper(fmt="iso")
     shared_processors = [
         structlog.stdlib.add_logger_name,

@@ -29,6 +29,7 @@ async def upload_file(
     name: str = Form(...),
     db: Session = Depends(get_db),
 ):
+    """Upload a tabular file and register it as a data source."""
     data_source = await ingest_file(file, name, db)
     return FileUploadResponse(
         id=cast(int, data_source.id),
@@ -40,10 +41,12 @@ async def upload_file(
 
 
 def _mask_password(url: str) -> str:
+    """Mask the password segment of a database URL for API responses."""
     return re.sub(r"://([^:]+):([^@]+)@", r"://\1:****@", url)
 
 
 def _to_data_source_response(data_source: DataSource) -> DataSourceResponse:
+    """Convert a DataSource model into its public API response schema."""
     return DataSourceResponse(
         id=cast(int, data_source.id),
         name=cast(str, data_source.name),
@@ -64,6 +67,7 @@ def connect_database(
     config: DatabaseConnectionRequest,
     db: Session = Depends(get_db),
 ):
+    """Validate and register an external database as a data source."""
     data_source = ingest_database(config, db)
     return DatabaseConnectionResponse(
         id=cast(int, data_source.id),
@@ -82,6 +86,7 @@ def get_data_sources(
     ),
     db: Session = Depends(get_db),
 ):
+    """List registered data sources, optionally filtered by source type."""
     data_sources = list_data_sources(db=db, source_type=source_type)
     return [_to_data_source_response(data_source) for data_source in data_sources]
 
@@ -91,5 +96,6 @@ def get_data_source_details(
     data_source_id: int,
     db: Session = Depends(get_db),
 ):
+    """Return details for a single registered data source."""
     data_source = get_data_source_by_id(data_source_id=data_source_id, db=db)
     return _to_data_source_response(data_source)

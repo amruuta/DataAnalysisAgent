@@ -10,7 +10,7 @@ import structlog
 from langchain_core.tools import tool
 from plotly.utils import PlotlyJSONEncoder
 
-from app.tools.plotly_registry import register_chart
+from app.agentic.tools.plotly_registry import register_chart
 
 _SUPPORTED_CHART_TYPES = {"bar", "line", "scatter", "pie", "histogram"}
 logger = structlog.get_logger(__name__)
@@ -31,6 +31,7 @@ _DTYPE_MAP: dict[str, np.dtype] = {
 
 
 def _decode_plotly_typed_array(value: dict) -> list | dict:
+    """Decode Plotly typed-array payloads into plain Python lists when possible."""
     dtype_code = value.get("dtype")
     encoded_data = value.get("bdata")
     shape = value.get("shape")
@@ -53,6 +54,7 @@ def _decode_plotly_typed_array(value: dict) -> list | dict:
 
 
 def _normalize_plotly_payload(value):
+    """Recursively convert Plotly payload values into JSON-safe Python values."""
     if isinstance(value, dict):
         if "dtype" in value and "bdata" in value:
             decoded = _decode_plotly_typed_array(value)
@@ -78,6 +80,7 @@ def _build_figure(
     color_column: str | None,
     title: str,
 ):
+    """Build a Plotly Express figure after validating requested columns."""
     if x_column not in df.columns:
         raise ValueError(f"Column '{x_column}' is not present in query results.")
 
