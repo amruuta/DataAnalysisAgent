@@ -5,7 +5,8 @@ class Settings(BaseSettings):
     DATABASE_URL: str = (
         "postgresql://postgres:postgres@localhost:5432/data_analysis_agent"
     )
-    GEMINI_API_KEY: str = ""
+    AI_API_KEY: str = ""
+    AI_MODEL: str = ""
     REDIS_URL: str = "redis://localhost:6379"
     UPLOAD_DIR: str = "uploads"
     EXPORT_DIR: str = "exports"

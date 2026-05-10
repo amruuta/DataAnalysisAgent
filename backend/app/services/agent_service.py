@@ -84,8 +84,8 @@ def _get_checkpointer() -> RedisSaver:
 def _get_agent_for_datasource(data_source: DataSource):
     """Build a deep agent wired to the correct database for a data source."""
     llm = ChatLiteLLM(
-        model="gemini/gemini-3-flash-preview",
-        api_key=settings.GEMINI_API_KEY,
+        model=settings.AI_MODEL,
+        api_key=settings.AI_API_KEY,
     )
 
     source_type = cast(str, data_source.source_type)
